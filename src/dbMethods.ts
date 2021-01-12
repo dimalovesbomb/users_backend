@@ -1,4 +1,4 @@
-const path = require('path');
+// const path = require('path');
 import fs from 'fs';
 import Response from './responseClass';
 import { verifyUser, User, Error } from './userClass';
@@ -6,7 +6,7 @@ import { verifyUser, User, Error } from './userClass';
 export function getData() {
     const ENCODING = 'utf8';
 
-    try {
+    try {    
         const data = fs.readFileSync(`${__dirname}/db.json`, ENCODING);
         return JSON.parse(data);
     } catch (error) {
@@ -29,7 +29,7 @@ export function getUsers() {
 export function addUser(newUser: User) {
     const currentData: User[] = getData();
     const verifiedUser: User | Error[] = verifyUser(newUser);
-
+    
     if (verifiedUser instanceof User) {
         verifiedUser.setId();
     } else {

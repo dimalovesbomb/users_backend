@@ -2,11 +2,13 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "startDefault": "nodemon ./src/index.ts",
-    "start": "nodemon ./src/index.ts"
+    "start:dev": "nodemon ./src/index.ts",
+    "start": "node ./src/index.js",
+    "build": "webpack --mode production",
+    "compile": "tsc --project ./"
   },
   "author": "",
   "license": "ISC",

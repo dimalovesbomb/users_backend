@@ -1,0 +1,104 @@
+Main address for requests: http://kupriunin.ru
+
+*************************************************************************
+
+GET kupriunin.ru/users
+NO HEADERS
+
+Must return a JSON object: 
+{
+    "success": boolean,
+    "statusCode": number,
+    "statusMessage": string,
+    "users": [
+        {
+            "firstName": string,
+            "lastName": string,
+            "birthdate": string,
+            "id"?: string,
+            "profilePicUrl"?: string,
+            "bio"?: string
+        }, 
+        { same as above }
+    ]
+}
+
+*************************************************************************
+
+POST kupriunin.ru/users
+HEADERS: { "Content-Type": "application/json;charset=utf-8" }
+BODY: { firstName: string, lastName: string, birthdate: string }
+
+Must return a JSON object: 
+
+{
+    "success": boolean,
+    "statusCode": number,
+    "statusMessage": string,
+    "newUser": User   [as an object in $users],
+    "error"?: string | Error[]   // Error = {"status": string, "statusCode": number},
+    "users": [
+        {
+            "firstName": string,
+            "lastName": string,
+            "birthdate": string,
+            "id"?: string,
+            "profilePicUrl"?: string,
+            "bio"?: string,
+        }, 
+        { same as above }
+    ]
+}
+
+*************************************************************************
+
+PUT kupriunin.ru/users/:id
+HEADERS: { "Content-Type": "application/json;charset=utf-8" }
+BODY: { firstName: string, lastName: string, birthdate: string } (minimal object components)
+
+Must return a JSON object: 
+{
+    "success": boolean,
+    "statusCode": number,
+    "statusMessage": string,
+    "updatedUser": User    [as an object in $users],
+    "error"?: string | Error[]   // Error = {"status": string, "statusCode": number},
+    "users": [
+        {
+            "firstName": string,
+            "lastName": string,
+            "birthdate": string,
+            "id"?: string,
+            "profilePicUrl"?: string,
+            "bio"?: string,
+        }, 
+        { same as above }
+    ]
+}
+
+*************************************************************************
+
+DELETE kupriunin.ru/users/:id 
+HEADERS: { "Content-Type": "application/json;charset=utf-8" }
+
+Must return a JSON object: 
+{
+    "success": boolean,
+    "statusCode": number,
+    "statusMessage": string,
+    "deletedUser": User    [as an object in $users],
+    "error"?: string | Error[]   // Error = {"status": string, "statusCode": number}
+    "users": [
+        {
+            "firstName": string,
+            "lastName": string,
+            "birthdate": string,
+            "id"?: string,
+            "profilePicUrl"?: string,
+            "bio"?: string,
+        }, 
+        { same as above }
+    ]
+}
+
+

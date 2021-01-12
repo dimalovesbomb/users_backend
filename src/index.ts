@@ -1,4 +1,3 @@
-
 import express from 'express';
 import { getUsers, addUser, removeUser, changeData } from './dbMethods';
 
@@ -12,7 +11,6 @@ app.use( (req, res, next) => {
   next();
 });
 app.use(express.json());
-// used for dev, delete for prod: consts webpack, webpackDevMiddleware, config, compiler
 
 app.get('/users', (req, res) => {
   /*

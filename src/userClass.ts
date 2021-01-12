@@ -13,7 +13,6 @@ export interface IUser {
 export type Error = {
     status: string;
     statusCode: number;
-    hasError?: boolean;
 };
 
 export class User implements IUser {
@@ -64,8 +63,9 @@ export function verifyUser(userData: User): User | Error[] {
 
 function checkEmptyKey(userData: any): Error[] {
     let errors: Error[] = [];
+
     for (let key in userData) {
-        if (userData[key] === "") {
+        if (userData[key] === '') {
             errors.push({
                 status: `No ${key} specified`,
                 statusCode: 422,
