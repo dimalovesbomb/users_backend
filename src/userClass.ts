@@ -62,10 +62,12 @@ export function verifyUser(userData: User): User | Error[] {
 }
 
 function checkEmptyKey(userData: any): Error[] {
+    const { firstName, lastName, birthdate } = userData;
+    const testUser: any = new User(firstName, lastName, birthdate);
     let errors: Error[] = [];
 
-    for (let key in userData) {
-        if (userData[key] === '') {
+    for (let key in testUser) {
+        if (!testUser[key]) {
             errors.push({
                 status: `No ${key} specified`,
                 statusCode: 422,
