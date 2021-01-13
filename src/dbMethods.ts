@@ -28,10 +28,10 @@ export function getUsers() {
 
 export function addUser(newUser: User) {
     const currentData: User[] = getData();
-    const verifiedUser: User | Error[] = verifyUser(newUser);
+    const verifiedUser: User | Error[] = verifyUser(newUser, null);
     
     if (verifiedUser instanceof User) {
-        verifiedUser.setId();
+        verifiedUser.setId(null);
     } else {
         const response = new Response(false, 422, 'user verification failed', getData());
         response.setError(verifiedUser)
@@ -82,15 +82,23 @@ export function removeUser(id: string) {
     }
 }
 
-export function changeData(id: string ,reqBody: User) {
+export function changeData(id: string, reqBody: User) {
     const currentData: User[] = getData();
+    const targetObjectArr: User[] = currentData.filter( user => user.id === id );
+    const verifiedUser = verifyUser(reqBody, id);
+    
+    if (!(verifiedUser instanceof User)) {
+        const errorRes = new Response(false, 422, 'User verification failed', getData());
+        errorRes.setError(verifiedUser);
 
-    const targetObjectArr: User[] = currentData.filter( user => user.id === id);
+        return errorRes;
+    }
 
     if (targetObjectArr.length !== 0) {
-        targetObjectArr[0] = reqBody;
+        targetObjectArr[0] = Object.assign(targetObjectArr[0], reqBody);
+        
     } else {
-        return new Response(false, 404, 'this user was not found', getData());
+        return new Response(false, 404, 'This user was not found', getData());
     }
     
     const indOfTargetObjArr = currentData.indexOf(targetObjectArr[0]);
@@ -113,3 +121,42 @@ export function changeData(id: string ,reqBody: User) {
         return response;
     }
 }
+
+export function attachProfilePicUrl(id: any, link: string) {
+    const currentData: User[] = getData();
+    const targetObject = currentData.find(user => user.id === id) as User; 
+
+    if (!targetObject) {
+        return new Response(false, 404, 'User was not found', getData());
+    }
+
+    const verifiedUser: User | Error[] = verifyUser(targetObject, id);
+
+    if (verifiedUser instanceof User) {
+        verifiedUser.setProfilePicUrl(`http://kupriunin.ru/${link}`); 
+
+        const indOfTargetObjArr = currentData.indexOf(targetObject);
+        currentData.splice(indOfTargetObjArr, 1);
+    
+        const preparedData = currentData.concat(verifiedUser);
+        const returnedData = JSON.stringify(preparedData);
+
+        try {
+            fs.writeFileSync(`${__dirname}/db.json`, returnedData);
+
+            const response = new Response(true, 201, 'Profile picture uploaded', getData())
+            response.setUpdatedUser(targetObject);
+
+            return response;
+        } catch (error) {
+            const response = new Response(false, 422, 'An error has occured', getData());
+            response.setError(error);
+
+            return response;
+        }
+    } else {
+        return new Response(false, 422, 'User verification failed', getData());
+    }
+}
+
+// attachProfilePicUrl('123456', 'some')

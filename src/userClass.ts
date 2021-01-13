@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
+import moment from 'moment';
 
 export interface IUser {
     id?: string;
@@ -34,8 +35,12 @@ export class User implements IUser {
         this.birthdate = birthdate;
     }
 
-    setId() {
-        this.id = uuidv4();
+    setId(id: any) {
+        if (id) {
+            this.id = id;
+        } else {
+            this.id = uuidv4();
+        }
     }
 
     setProfilePicUrl(url: string) {
@@ -51,11 +56,27 @@ export class User implements IUser {
     }
 }
 
-export function verifyUser(userData: User): User | Error[] {
-    const { firstName, lastName, birthdate } = userData;
+export function verifyUser(userData: User, id: any): User | Error[] {
+    const { firstName, lastName, birthdate, bio, profilePicUrl } = userData as User;
+
+    if (birthdate) {
+        if (!isValidDate(birthdate)) { 
+            return [{statusCode: 422, status: 'Birthdate is invalid'}] // set mask ####.##.## on client
+        }
+    }
 
     if (firstName && lastName && birthdate) {
-        return new User(firstName, lastName, birthdate);
+        const verifiedUser = new User(firstName, lastName, birthdate);
+        verifiedUser.setId(id);
+
+        if (bio) {
+            verifiedUser.setBio(bio);
+        }
+        if (profilePicUrl) {
+            verifiedUser.setProfilePicUrl(profilePicUrl);
+        }
+
+        return verifiedUser;
     } else {
         return checkEmptyKey(userData);
     }
@@ -76,3 +97,8 @@ function checkEmptyKey(userData: any): Error[] {
     }
     return errors;
 }
+
+function isValidDate(date: string): boolean {
+    return moment(date, 'DD.MM.YYYY').isValid();
+}
+// console.log(isValidDate('32.12.1994'));

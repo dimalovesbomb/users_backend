@@ -1,8 +1,20 @@
 import express from 'express';
-import { getUsers, addUser, removeUser, changeData } from './dbMethods';
+import multer from 'multer';
+import { getUsers, addUser, removeUser, changeData, attachProfilePicUrl } from './dbMethods';
 
 const app = express();
 const PORT = 3000;
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) =>  {
+    cb(null, 'uploads/')
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + '.jpg') //Appending .jpg
+  }
+})
+
+const upload = multer({storage});
 
 app.use( (req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
@@ -27,6 +39,14 @@ app.post('/users', (req, res) => {
     $req.body must have an User object
   */
   const operationResult = addUser(req.body);
+
+  return res.status(operationResult.statusCode).send(operationResult)
+});
+
+app.post('/upload?:id', upload.single('avatar'), (req, res) => {
+  const { path } = req.file;
+  const { id } = req.query;
+  const operationResult = attachProfilePicUrl(id, path);
 
   return res.status(operationResult.statusCode).send(operationResult)
 });
