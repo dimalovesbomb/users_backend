@@ -52,7 +52,8 @@ Must return a JSON object:
 
 *************************************************************************
 
-PUT kupriunin.ru/users/:id
+PUT kupriunin.ru/users?:id
+QUERY: id (id === User.id)
 HEADERS: { "Content-Type": "application/json;charset=utf-8" }
 BODY: { firstName: string, lastName: string, birthdate: string } (minimal object components)
 
@@ -78,7 +79,7 @@ Must return a JSON object:
 
 *************************************************************************
 
-DELETE kupriunin.ru/users/:id 
+DELETE kupriunin.ru/users?:id 
 QUERY: id  (id === User.id)
 HEADERS: { "Content-Type": "application/json;charset=utf-8" }
 
@@ -104,7 +105,7 @@ Must return a JSON object:
 
 *************************************************************************
 
-POST kupriunin.ru/upload 
+POST kupriunin.ru/upload?:id
 QUERY: id (id === User.id)
 HEADERS: ? 
 BODY: FormData 

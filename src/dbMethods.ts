@@ -3,11 +3,28 @@ import fs from 'fs';
 import Response from './responseClass';
 import { verifyUser, User, Error } from './userClass';
 
+const PATH_URL = 'localhost:3000';
+const STATUS_MESSAGE = {
+    fs: 'File system (fs) error has occured',
+    user: {
+        200: 'Database fetched successfully',
+        201: {
+            user: 'User created successfully',
+            pic: 'Picture uploaded successfully'
+        },
+        202: 'User updated successfully',
+        204: 'User deleted successfully',
+        404: 'This user was not found',
+        400: 'Error has occured',
+        422: 'User verification failed'
+    }
+};
+
 export function getData() {
     const ENCODING = 'utf8';
 
     try {    
-        const data = fs.readFileSync(`${__dirname}/db.json`, ENCODING);
+        const data = fs.readFileSync(`${__dirname}/database/db.json`, ENCODING);
         return JSON.parse(data);
     } catch (error) {
         return { error }
@@ -17,12 +34,12 @@ export function getData() {
 export function getUsers() {
     const data: User[] | any = getData();
     if (data.error) {
-        const response = new Response(false, 400, 'an error has occured', getData());
+        const response = new Response(false, 400, STATUS_MESSAGE.fs, getData());
         response.setError(data.error);
 
         return response;
     } else {
-        return new Response(true, 200, 'Database fetched successfully', data);
+        return new Response(true, 200, STATUS_MESSAGE.user[200], data);
     }
 }
 
@@ -33,7 +50,7 @@ export function addUser(newUser: User) {
     if (verifiedUser instanceof User) {
         verifiedUser.setId(null);
     } else {
-        const response = new Response(false, 422, 'user verification failed', getData());
+        const response = new Response(false, 422, STATUS_MESSAGE.user[422], getData());
         response.setError(verifiedUser)
         return response;
     }
@@ -41,14 +58,14 @@ export function addUser(newUser: User) {
     const returnedData = JSON.stringify([...currentData, verifiedUser]);
 
     try {
-        fs.writeFileSync(`${__dirname}/db.json`, returnedData);
+        fs.writeFileSync(`${__dirname}/database/db.json`, returnedData);
         
-        const response = new Response(true, 201, 'user added successfully', getData());
+        const response = new Response(true, 201, STATUS_MESSAGE.user[201].user, getData());
         response.setNewUser(verifiedUser);
 
         return response; 
     } catch (error) {
-        const response = new Response(false, 400, 'an error has occured', getData());
+        const response = new Response(false, 400, STATUS_MESSAGE.fs, getData());
         response.setError(error);
 
         return response;
@@ -57,28 +74,27 @@ export function addUser(newUser: User) {
 
 export function removeUser(id: string) {
     const currentData: User[] = getData();
-    const isFoundId = currentData.find(item => item.id === id);
-    const deletedObjectArr = currentData.filter(item => item.id === id);
+    const foundUser = currentData.find(item => item.id === id);
 
-    if (isFoundId) {
+    if (foundUser) {
         const preparedData = currentData.filter(item => item.id !== id);
         const returnedData = JSON.stringify(preparedData);
     
         try {
-            fs.writeFileSync(`${__dirname}/db.json`, returnedData);
+            fs.writeFileSync(`${__dirname}/database/db.json`, returnedData);
 
-            const response = new Response(true, 201, 'user removed successfully', getData());
-            response.setDeletedUser(deletedObjectArr[0]);
+            const response = new Response(true, 202, STATUS_MESSAGE.user[204], getData());
+            response.setDeletedUser(foundUser);
 
             return response;
         } catch (error) {
-            const response = new Response(false, 400, 'an error has occured', getData());
+            const response = new Response(false, 400, STATUS_MESSAGE.fs, getData());
             response.setError(error);
 
             return response;
         }
     } else {
-        return new Response(false, 404, 'this user was not found', getData());
+        return new Response(false, 404, STATUS_MESSAGE.user[404], getData());
     }
 }
 
@@ -88,7 +104,7 @@ export function changeData(id: string, reqBody: User) {
     const verifiedUser = verifyUser(reqBody, id);
     
     if (!(verifiedUser instanceof User)) {
-        const errorRes = new Response(false, 422, 'User verification failed', getData());
+        const errorRes = new Response(false, 422, STATUS_MESSAGE.user[422], getData());
         errorRes.setError(verifiedUser);
 
         return errorRes;
@@ -98,7 +114,7 @@ export function changeData(id: string, reqBody: User) {
         targetObjectArr[0] = Object.assign(targetObjectArr[0], reqBody);
         
     } else {
-        return new Response(false, 404, 'This user was not found', getData());
+        return new Response(false, 404, STATUS_MESSAGE.user[404], getData());
     }
     
     const indOfTargetObjArr = currentData.indexOf(targetObjectArr[0]);
@@ -108,32 +124,41 @@ export function changeData(id: string, reqBody: User) {
     const returnedData = JSON.stringify(preparedData);
 
     try {
-        fs.writeFileSync(`${__dirname}/db.json`, returnedData);
+        fs.writeFileSync(`${__dirname}/database/db.json`, returnedData);
 
-        const response = new Response(true, 201, 'user updated successfully', getData());
+        const response = new Response(true, 202, STATUS_MESSAGE.user[202], getData());
         response.setUpdatedUser(targetObjectArr[0]);
 
         return response;
     } catch (error) {
-        const response = new Response(false, 400, 'an error has occured', getData());
+        const response = new Response(false, 400, STATUS_MESSAGE.fs, getData());
         response.setError(error);
 
         return response;
     }
 }
 
-export function attachProfilePicUrl(id: any, link: string) {
+export function uploadPic(id: any, link: string) {
     const currentData: User[] = getData();
     const targetObject = currentData.find(user => user.id === id) as User; 
 
     if (!targetObject) {
-        return new Response(false, 404, 'User was not found', getData());
+        try {
+            fs.unlinkSync(`${__dirname}/../${link}`);
+
+            return new Response(false, 404, STATUS_MESSAGE.user[404], getData());
+        } catch (error) {
+            const response = new Response(false, 400, STATUS_MESSAGE.fs, getData());
+            response.setError(error);
+
+            return response;
+        }
     }
 
     const verifiedUser: User | Error[] = verifyUser(targetObject, id);
 
     if (verifiedUser instanceof User) {
-        verifiedUser.setProfilePicUrl(`http://kupriunin.ru/${link}`); 
+        verifiedUser.setProfilePicUrl(`${PATH_URL}/${link}`); 
 
         const indOfTargetObjArr = currentData.indexOf(targetObject);
         currentData.splice(indOfTargetObjArr, 1);
@@ -142,21 +167,29 @@ export function attachProfilePicUrl(id: any, link: string) {
         const returnedData = JSON.stringify(preparedData);
 
         try {
-            fs.writeFileSync(`${__dirname}/db.json`, returnedData);
+            fs.writeFileSync(`${__dirname}/database/db.json`, returnedData);
 
-            const response = new Response(true, 201, 'Profile picture uploaded', getData())
-            response.setUpdatedUser(targetObject);
+            const response = new Response(true, 201, STATUS_MESSAGE.user[201].pic, getData())
+            response.setUpdatedUser(verifiedUser);
 
             return response;
         } catch (error) {
+            fs.unlinkSync(`${__dirname}/../${link}`);
             const response = new Response(false, 422, 'An error has occured', getData());
             response.setError(error);
 
             return response;
         }
     } else {
-        return new Response(false, 422, 'User verification failed', getData());
+        try {
+            fs.unlinkSync(`${__dirname}/../${link}`);
+
+            return new Response(false, 422, STATUS_MESSAGE.user[422], getData());
+        } catch (error) {
+            const response = new Response(false, 400, STATUS_MESSAGE.fs, getData());
+            response.setError(error);
+
+            return response;
+        }
     }
 }
-
-// attachProfilePicUrl('123456', 'some')
