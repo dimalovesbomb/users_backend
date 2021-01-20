@@ -1,8 +1,13 @@
 import { v4 as uuidv4 } from "uuid";
 import moment from 'moment';
+import { loginPasswordVerificationHandler } from "./database/loginCreds";
+import { ObjectId } from "mongoose";
 
 export interface IUser {
-    id?: string;
+    _id?: string | ObjectId;
+    _v?: number;
+    login?: string;
+    password?: string;
     firstName: string | null;
     lastName: string | null;
     birthdate: string | null;
@@ -17,7 +22,11 @@ export type Error = {
 };
 
 export class User implements IUser {
+    _id?: string | ObjectId;
+    _v?: number;
     id?: string;
+    login?: string;
+    password?: string;
     firstName: string | null;
     lastName: string | null;
     birthdate: string | null;
@@ -54,20 +63,39 @@ export class User implements IUser {
     setError(error: Error[]) {
         this.error = error;
     }
+
+    setLogin(login: string) {
+        this.login = login;
+    }
+
+    setPassword(password: string) {
+        this.password = password;
+    }
 }
 
-export function verifyUser(userData: User, id: any): User | Error[] {
-    const { firstName, lastName, birthdate, bio, profilePicUrl } = userData as User;
+export async function verifyUser(userData: User, id: any, authRequired?: boolean) {
+    const { firstName, lastName, birthdate, bio, profilePicUrl, login, password } = userData as User;
 
     if (birthdate) {
         if (!isValidDate(birthdate)) { 
-            return [{statusCode: 422, status: 'Birthdate is invalid'}] // set mask ####.##.## on client
+            return [{statusCode: 422, status: 'Birthdate is invalid'}];
         }
     }
 
     if (firstName && lastName && birthdate) {
         const verifiedUser = new User(firstName, lastName, birthdate);
         verifiedUser.setId(id);
+        
+        if (authRequired) {
+            const loginPasswordCheck = await loginPasswordVerificationHandler(login, password);
+
+            if (Array.isArray(loginPasswordCheck)) { // if loginPasswordVerificationHandler returned an error array
+                return loginPasswordCheck;
+            }
+
+            verifiedUser.setLogin(login);
+            verifiedUser.setPassword(password);
+        }
 
         if (bio) {
             verifiedUser.setBio(bio);

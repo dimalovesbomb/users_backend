@@ -1,4 +1,5 @@
 import { IUser } from './userClass';
+import { UserModel } from './models/User';
 
 interface IResponse {
     success: boolean;

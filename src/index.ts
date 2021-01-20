@@ -1,12 +1,24 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import multer from 'multer';
-import basicAuth, { BasicAuthMiddlewareOptions, IUsersOptions } from 'express-basic-auth';
 import { getUsers, addUser, removeUser, changeData, uploadPic } from './dbMethods';
-import { getLoginCreds, getBasicAuthOptions } from './database/loginCreds';
+import path from 'path';
+import basicAuth, { BasicAuthMiddlewareOptions } from 'express-basic-auth';
+import { getBasicAuthOptions } from './database/loginCreds';
+import { UserModel } from './models/User';
 
 const app = express();
 const PORT = 3000;
 
+mongoose.connect(
+  'mongodb+srv://dima_loves_bomb:8903Dmit@dimalovesbomb.mfzkb.mongodb.net/users?retryWrites=true&w=majority',
+  { useNewUrlParser: true, useUnifiedTopology: true },
+  // () => console.log('db connected')
+);
+mongoose.connection.on('error', console.log.bind(console, 'connection error'));
+mongoose.connection.once('open', () => {
+  console.log('Connected to database');
+});
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) =>  {
@@ -23,7 +35,7 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({storage});
+export const upload = multer({storage});
 
 app.use( (req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
@@ -31,61 +43,81 @@ app.use( (req, res, next) => {
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
   next();
 });
-
-const options: BasicAuthMiddlewareOptions = getBasicAuthOptions(getLoginCreds());
-app.use(basicAuth(options));
 app.use(express.json());
 
-app.get('/users', (req, res) => {
-  /*
-  No params/query needed
-  */
-  const operationResult = getUsers();
 
-  return res.status(operationResult.statusCode).send(operationResult)
+export const authRequired = basicAuth({
+  authorizer,
+  authorizeAsync: true
 });
 
-app.post('/users', (req, res) => {
-  /*
-  In $req:
-    $req.body must have an User object
-  */
-  const operationResult = addUser(req.body);
+async function authorizer(login, password, cb) {
+  const users = await UserModel.find();
+  const options: any = getBasicAuthOptions(users);
+  const dbLogin = Object.keys(options.users).find( log => login === log);
+  const dbPassword = Object.values(options.users).find( pass => password === pass);
 
-  return res.status(operationResult.statusCode).send(operationResult)
-});
+  if (login.startsWith(dbLogin) & password.startsWith(dbPassword)) {
+    return cb(null, true);
+  } else {
+    return cb(null, false);
+  }
+}
 
-app.post('/upload?:id', upload.single('avatar'), (req, res) => {
-  const { path } = req.file;
-  const { id } = req.query;
-  const operationResult = uploadPic(id, path);
-
-  return res.status(operationResult.statusCode).send(operationResult)
-});
-
-app.put('/users?:id', (req, res) => {
-  /*
-  In $req:
-    $req.params must have an $id;
-    $req.body must have an User object
-  */
-  const ID: any = req.query.id; //actually 'ID: string', but TS is a donkey
-  const BODY = req.body;
-  const operationResult = changeData(ID, BODY);
-
-  return res.status(operationResult.statusCode).send(operationResult);
-});
-
-app.delete('/users?:id', (req, res) => {
-  /*
-  In $req:
-    $req.query.id must have an User.id
-  */
-  const ID: any = req.query.id;
-  const operationResult = removeUser(ID);
-
-  return res.status(operationResult.statusCode).send(operationResult);
-});
+app.get('/users', authRequired, async (req, res) => {
+  // No params/query needed
+    const operationResult = await getUsers();
+  
+    return res.status(operationResult.statusCode).send(operationResult)
+  });
+  
+  app.post('/users', async (req, res) => {
+  //   In $req: $req.body must have an User object
+    const operationResult = await addUser(req.body);
+  
+    return res.status(operationResult.statusCode).send(operationResult)
+  });
+  
+  app.post('/upload?:id', authRequired, upload.single('avatar'), async (req, res) => {
+    const { path } = req.file;
+    const { id } = req.query;
+    const operationResult = await uploadPic(id, path);
+  
+    return res.status(operationResult.statusCode).send(operationResult)
+  });
+  
+  app.get('/uploads/:filename', (req, res) => {
+    const pathToFile = `${__dirname}/..${req.path}`;
+  
+    return res.status(200).sendFile(path.resolve(pathToFile), {dotfiles: 'allow'});
+  });
+  
+  app.put('/users?:id', async (req, res) => {
+    /*
+    In $req:
+      $req.params must have an $id;
+      $req.body must have an User object
+    */
+    const ID: any = req.query.id; //actually 'ID: string', but TS is a donkey
+    const BODY = req.body;
+    
+    const operationResult = await changeData(ID, BODY);
+    console.log(operationResult);
+    
+  
+    return res.status(operationResult.statusCode).send(operationResult);
+  });
+  
+  app.delete('/users?:id', async (req, res) => {
+    /*
+    In $req:
+      $req.query.id must have an User.id
+    */
+    const ID: any = req.query.id;
+    const operationResult = await removeUser(ID);
+  
+    return res.status(operationResult.statusCode).send(operationResult);
+  });
 
 app.listen(PORT, () => {
   console.log(`⚡️ server is running on port ${PORT}`);

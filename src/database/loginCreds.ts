@@ -1,23 +1,11 @@
 import { BasicAuthMiddlewareOptions } from 'express-basic-auth';
-import fs from 'fs';
+import { UserModel } from '../models/User';
 
 export interface IUserCreds {
     login: string;
     password: string;
     token?: string;
 };
-
-export function getLoginCreds() {
-    const ENCODING = 'utf8';
-
-    try {
-        const data = fs.readFileSync(`${__dirname}/passwords.json`, ENCODING);
-
-        return JSON.parse(data);
-    } catch (error) {
-        return { error };
-    }
-}
 
 export const getBasicAuthOptions = (usersData: IUserCreds[] | any): BasicAuthMiddlewareOptions => {
     if (usersData.error) {
@@ -30,5 +18,21 @@ export const getBasicAuthOptions = (usersData: IUserCreds[] | any): BasicAuthMid
         }, {});
 
         return {users: loginPassword}
+    }
+}
+
+async function isLoginUnique(login: string) {
+    return !Boolean( await UserModel.findOne({login}) ); // .findOne() returns object || null
+}
+
+export async function loginPasswordVerificationHandler(login?: string, password?: string) {
+    if (login && password) {
+        if (await isLoginUnique(login)) {
+            return true;
+        } else {
+            return [{statusCode: 422, status: 'Login is not unique'}]
+        }
+    } else {
+        return [{statusCode: 422, status: 'Login/password is not specified'}]
     }
 }

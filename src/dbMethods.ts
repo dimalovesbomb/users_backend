@@ -2,10 +2,13 @@
 import fs from 'fs';
 import Response from './responseClass';
 import { verifyUser, User, Error } from './userClass';
+import { UserModel } from './models/User';
+import path from 'path';
 
 const PATH_URL = 'localhost:3000';
 const STATUS_MESSAGE = {
     fs: 'File system (fs) error has occured',
+    db: 'Database error has occured',
     user: {
         200: 'Database fetched successfully',
         201: {
@@ -20,176 +23,157 @@ const STATUS_MESSAGE = {
     }
 };
 
-export function getData() {
-    const ENCODING = 'utf8';
+export async function getData(): Promise<User[] | any> {
+    try {
+        const data = await UserModel.find();
 
-    try {    
-        const data = fs.readFileSync(`${__dirname}/database/db.json`, ENCODING);
-        return JSON.parse(data);
+        return data;
     } catch (error) {
-        return { error }
+        return { error };
     }
 }
 
-export function getUsers() {
-    const data: User[] | any = getData();
-    if (data.error) {
-        const response = new Response(false, 400, STATUS_MESSAGE.fs, getData());
-        response.setError(data.error);
+export async function getUsers() {
+    const currentData: User[] | any = await getData();
+    if (currentData.error) {
+        const errorResponse = new Response(false, 400, STATUS_MESSAGE.db, currentData);
+        errorResponse.setError(currentData.error);
 
-        return response;
+        return errorResponse;
     } else {
-        return new Response(true, 200, STATUS_MESSAGE.user[200], data);
+        return new Response(true, 200, STATUS_MESSAGE.user[200], currentData);
     }
 }
 
-export function addUser(newUser: User) {
-    const currentData: User[] = getData();
-    const verifiedUser: User | Error[] = verifyUser(newUser, null);
+export async function addUser(newUser: User) {
+    const currentData: User[] =  await getData();
+    const verifiedUser: User | Error[] = await verifyUser(newUser, null, true);
     
     if (verifiedUser instanceof User) {
         verifiedUser.setId(null);
     } else {
-        const response = new Response(false, 422, STATUS_MESSAGE.user[422], getData());
-        response.setError(verifiedUser)
-        return response;
+        const errorResponse = new Response(false, 422, STATUS_MESSAGE.user[422], currentData);
+        errorResponse.setError(verifiedUser)
+        return errorResponse;
     }
 
-    const returnedData = JSON.stringify([...currentData, verifiedUser]);
-
+    const { firstName, lastName, birthdate, login, password } = verifiedUser;
+    const user = new UserModel({firstName, lastName, birthdate, login, password});
+    
     try {
-        fs.writeFileSync(`${__dirname}/database/db.json`, returnedData);
-        
-        const response = new Response(true, 201, STATUS_MESSAGE.user[201].user, getData());
-        response.setNewUser(verifiedUser);
+        const savedUser = await user.save();
+        const successResponse = new Response(true, 201, STATUS_MESSAGE.user[201].user, await getData());
+        successResponse.setNewUser(savedUser);
 
-        return response; 
+        return successResponse;
     } catch (error) {
-        const response = new Response(false, 400, STATUS_MESSAGE.fs, getData());
-        response.setError(error);
+        const errorResponse = new Response(false, 400, STATUS_MESSAGE.fs, currentData);
+        errorResponse.setError(error);
 
-        return response;
+        return errorResponse;
     }
 } 
 
-export function removeUser(id: string) {
-    const currentData: User[] = getData();
-    const foundUser = currentData.find(item => item.id === id);
-
-    if (foundUser) {
-        const preparedData = currentData.filter(item => item.id !== id);
-        const returnedData = JSON.stringify(preparedData);
-    
-        try {
-            fs.writeFileSync(`${__dirname}/database/db.json`, returnedData);
-
-            const response = new Response(true, 202, STATUS_MESSAGE.user[204], getData());
-            response.setDeletedUser(foundUser);
-
-            return response;
-        } catch (error) {
-            const response = new Response(false, 400, STATUS_MESSAGE.fs, getData());
-            response.setError(error);
-
-            return response;
-        }
-    } else {
-        return new Response(false, 404, STATUS_MESSAGE.user[404], getData());
-    }
-}
-
-export function changeData(id: string, reqBody: User) {
-    const currentData: User[] = getData();
-    const targetObjectArr: User[] = currentData.filter( user => user.id === id );
-    const verifiedUser = verifyUser(reqBody, id);
-    
-    if (!(verifiedUser instanceof User)) {
-        const errorRes = new Response(false, 422, STATUS_MESSAGE.user[422], getData());
-        errorRes.setError(verifiedUser);
-
-        return errorRes;
-    }
-
-    if (targetObjectArr.length !== 0) {
-        targetObjectArr[0] = Object.assign(targetObjectArr[0], reqBody);
-        
-    } else {
-        return new Response(false, 404, STATUS_MESSAGE.user[404], getData());
-    }
-    
-    const indOfTargetObjArr = currentData.indexOf(targetObjectArr[0]);
-    currentData.splice(indOfTargetObjArr, 1);
-
-    const preparedData = currentData.concat(targetObjectArr);
-    const returnedData = JSON.stringify(preparedData);
-
+export async function removeUser(id: string) {
     try {
-        fs.writeFileSync(`${__dirname}/database/db.json`, returnedData);
+        const deletedUser: any = await UserModel.findByIdAndDelete(id);
+        const successResponse = new Response(true, 202, STATUS_MESSAGE.user[204], await getData());
+        successResponse.setDeletedUser(deletedUser);
 
-        const response = new Response(true, 202, STATUS_MESSAGE.user[202], getData());
-        response.setUpdatedUser(targetObjectArr[0]);
-
-        return response;
+        return successResponse;
     } catch (error) {
-        const response = new Response(false, 400, STATUS_MESSAGE.fs, getData());
-        response.setError(error);
+        const errorResponse = new Response(false, 400, STATUS_MESSAGE.fs, await getData());
+        errorResponse.setError(error);
 
-        return response;
+        return errorResponse;
     }
 }
 
-export function uploadPic(id: any, link: string) {
-    const currentData: User[] = getData();
-    const targetObject = currentData.find(user => user.id === id) as User; 
+export async function changeData(id: string, reqBody: User) {
+    const currentData: User[] | any = await getData();
+    const verifiedUser: User[] | any = await verifyUser(reqBody, id);
 
-    if (!targetObject) {
+    if (verifiedUser instanceof User) {
         try {
-            fs.unlinkSync(`${__dirname}/../${link}`);
+            const changedUser: any = await UserModel.findByIdAndUpdate({_id: id}, verifiedUser);
+            const successResponse = new Response(true, 202, STATUS_MESSAGE.user[202], await getData());
+            successResponse.setUpdatedUser(changedUser);
 
-            return new Response(false, 404, STATUS_MESSAGE.user[404], getData());
+            return successResponse;
         } catch (error) {
-            const response = new Response(false, 400, STATUS_MESSAGE.fs, getData());
-            response.setError(error);
+            const errorResponse = new Response(false, 400, STATUS_MESSAGE.user[400], currentData)
+            errorResponse.setError(error);
 
-            return response;
+            return errorResponse
+        }
+    } else {
+        const errorResponse = new Response(false, 422, STATUS_MESSAGE.user[422], currentData)
+        errorResponse.setError(verifiedUser);
+
+        return errorResponse;
+    }
+}
+
+export async function uploadPic(id: any, link: string) {
+    const currentData: User[] = await getData();
+    const targetUser: User | any = await UserModel.findById(id);
+
+    if (!targetUser) {
+        try {
+            const pathToFile = path.resolve(`${__dirname}/../${link}`);
+            fs.unlink(pathToFile, error => {
+                if (error)
+                    throw error;
+            });
+
+            return new Response(false, 404, STATUS_MESSAGE.user[404], currentData);
+        } catch (error) {
+            const errorResponse = new Response(false, 400, STATUS_MESSAGE.fs, currentData);
+            errorResponse.setError(error);
+
+            return errorResponse;
         }
     }
 
-    const verifiedUser: User | Error[] = verifyUser(targetObject, id);
+    const verifiedUser: User | Error[] = await verifyUser(targetUser, id);
 
     if (verifiedUser instanceof User) {
         verifiedUser.setProfilePicUrl(`${PATH_URL}/${link}`); 
 
-        const indOfTargetObjArr = currentData.indexOf(targetObject);
-        currentData.splice(indOfTargetObjArr, 1);
-    
-        const preparedData = currentData.concat(verifiedUser);
-        const returnedData = JSON.stringify(preparedData);
-
         try {
-            fs.writeFileSync(`${__dirname}/database/db.json`, returnedData);
+            const changedUser: any = await UserModel.findByIdAndUpdate({_id: id}, verifiedUser);
+            const successResponse = new Response(true, 202, STATUS_MESSAGE.user[202], await getData());
+            successResponse.setUpdatedUser(changedUser);
 
-            const response = new Response(true, 201, STATUS_MESSAGE.user[201].pic, getData())
-            response.setUpdatedUser(verifiedUser);
-
-            return response;
+            return successResponse;
         } catch (error) {
-            fs.unlinkSync(`${__dirname}/../${link}`);
-            const response = new Response(false, 422, 'An error has occured', getData());
-            response.setError(error);
+            const pathToFile = path.resolve(`${__dirname}/../${link}`);
+            fs.unlink(pathToFile, error => {
+                if (error) throw error;
+            });
 
-            return response;
+            const errorResponse = new Response(false, 422, STATUS_MESSAGE.db, currentData);
+            errorResponse.setError(error);
+
+            return errorResponse;
         }
     } else {
         try {
-            fs.unlinkSync(`${__dirname}/../${link}`);
+            const pathToFile = path.resolve(`${__dirname}/../${link}`);
+            fs.unlink(pathToFile, error => {
+                if (error) throw error;
+            });
 
-            return new Response(false, 422, STATUS_MESSAGE.user[422], getData());
+            const errorResponse = new Response(false, 422, STATUS_MESSAGE.user[422], currentData);
+            errorResponse.setError(verifiedUser);
+
+            return errorResponse;
         } catch (error) {
-            const response = new Response(false, 400, STATUS_MESSAGE.fs, getData());
-            response.setError(error);
+            const errorResponse = new Response(false, 400, STATUS_MESSAGE.fs, currentData);
+            errorResponse.setError(error);
 
-            return response;
+            return errorResponse;
         }
     }
 }
+

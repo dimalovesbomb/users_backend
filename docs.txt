@@ -27,7 +27,7 @@ Must return a JSON object:
 
 POST kupriunin.ru/users
 HEADERS: { "Content-Type": "application/json;charset=utf-8" }
-BODY: { firstName: string, lastName: string, birthdate: string }
+BODY: { firstName: string, lastName: string, birthdate: string, login: string, password: string }
 
 Must return a JSON object: 
 
