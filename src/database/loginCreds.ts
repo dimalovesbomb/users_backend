@@ -1,25 +1,24 @@
-import { BasicAuthMiddlewareOptions } from 'express-basic-auth';
 import { UserModel } from '../models/User';
 
-export interface IUserCreds {
-    login: string;
-    password: string;
-    token?: string;
-};
+// export interface IUserCreds {
+//     login: string;
+//     password: string;
+//     token?: string;
+// };
 
-export const getBasicAuthOptions = (usersData: IUserCreds[] | any): BasicAuthMiddlewareOptions => {
-    if (usersData.error) {
-        const { error } = usersData;
-        return error 
-    } else {
-        const loginPassword = usersData.reduce((accum: any, user: IUserCreds) => { 
-            accum[user.login] = user.password; 
-            return accum; 
-        }, {});
+// export const getBasicAuthOptions = (usersData: IUserCreds[] | any) => {
+//     if (usersData.error) {
+//         const { error } = usersData;
+//         return error 
+//     } else {
+//         const loginPassword = usersData.reduce((accum: any, user: IUserCreds) => { 
+//             accum[user.login] = user.password; 
+//             return accum; 
+//         }, {});
 
-        return {users: loginPassword}
-    }
-}
+//         return {users: loginPassword}
+//     }
+// }
 
 async function isLoginUnique(login: string) {
     return !Boolean( await UserModel.findOne({login}) ); // .findOne() returns object || null

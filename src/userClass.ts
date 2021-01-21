@@ -129,4 +129,4 @@ function checkEmptyKey(userData: any): Error[] {
 function isValidDate(date: string): boolean {
     return moment(date, 'DD.MM.YYYY').isValid();
 }
-// console.log(isValidDate('32.12.1994'));
+

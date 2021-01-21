@@ -1,9 +1,9 @@
-// const path = require('path');
 import fs from 'fs';
 import Response from './responseClass';
 import { verifyUser, User, Error } from './userClass';
 import { UserModel } from './models/User';
 import path from 'path';
+import bcryptjs from 'bcryptjs';
 
 const PATH_URL = 'localhost:3000';
 const STATUS_MESSAGE = {
@@ -19,6 +19,7 @@ const STATUS_MESSAGE = {
         204: 'User deleted successfully',
         404: 'This user was not found',
         400: 'Error has occured',
+        403: 'User credentials denied',
         422: 'User verification failed'
     }
 };
@@ -58,7 +59,12 @@ export async function addUser(newUser: User) {
     }
 
     const { firstName, lastName, birthdate, login, password } = verifiedUser;
-    const user = new UserModel({firstName, lastName, birthdate, login, password});
+    // HASHING THE PASSWORD
+    const salt = await bcryptjs.genSalt(10);
+    const hashedPassword = await bcryptjs.hash(password, salt);
+    
+    // END OF HASHING
+    const user = new UserModel({firstName, lastName, birthdate, login, password: hashedPassword});
     
     try {
         const savedUser = await user.save();
@@ -89,9 +95,16 @@ export async function removeUser(id: string) {
     }
 }
 
-export async function changeData(id: string, reqBody: User) {
+export async function changeData(id: string, reqBody: User, clientId: string) {
     const currentData: User[] | any = await getData();
     const verifiedUser: User[] | any = await verifyUser(reqBody, id);
+
+    if (clientId !== id) {
+        const errorResponse = new Response(false, 403, STATUS_MESSAGE.user[403], currentData);
+        errorResponse.setError([{statusCode: 403, statusMessage: `Invalid user's id: you don't have a permission to change this user`}]);
+        
+        return errorResponse;
+    }
 
     if (verifiedUser instanceof User) {
         try {
